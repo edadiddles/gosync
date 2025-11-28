@@ -12,23 +12,49 @@ func main() {
 		return
 	}
 
-	dir1 := os.Args[1]
-	dir2 := os.Args[2]
+	prog := os.Args[1]
+	src := os.Args[2]
+	dest := os.Args[3]
 
-	fmt.Println("Dir1:", dir1, "-- Dir2:", dir2)
+	//TODO: check which prog is passed so the correct actions can be taking
+	fmt.Println("Prog:", prog)
+	fmt.Println("src:", src, "--> dest:", dest)
 
-	fs1, err := os.ReadDir(dir1)
+	fs1, err := os.ReadDir(src)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fs2, err := os.ReadDir(dir2)
+	fs2, err := os.ReadDir(dest)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Println(fs1)
-	fmt.Println(fs2)
+	for i := range len(fs1) {
+		fmt.Println(fs1[i])
+		if fs1[i].IsDir() {
+			subdir, err := os.ReadDir(src + "/" + fs1[i].Name())
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Println(subdir)
+		}
+	}
+
+	fmt.Println("-----")
+	
+	for i := range len(fs2) {
+		fmt.Println(fs2[i])
+		if fs2[i].IsDir() {
+			subdir, err := os.ReadDir(dest + "/" + fs2[i].Name())
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Println(subdir)
+		}
+	}
 }
