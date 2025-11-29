@@ -2,9 +2,24 @@ package main
 
 import (
 	"fmt"
-	//"io/fs"
 	"os"
+	//"crypto/sha256"
+	"strings"
 )
+
+const (
+	CREATED int = iota
+	UPDATED
+	DELETED
+)
+
+type ftree struct {
+	is_dir   bool
+	name     string
+	checksum string
+	modified int
+	children []*ftree
+}
 
 func main() {
 	if len(os.Args) < 3 {
@@ -32,29 +47,79 @@ func main() {
 		return
 	}
 
-	for i := range len(fs1) {
-		fmt.Println(fs1[i])
-		if fs1[i].IsDir() {
-			subdir, err := os.ReadDir(src + "/" + fs1[i].Name())
+	srcTree := ftree{is_dir: true, name: src}
+	build_ftree(&srcTree, src, fs1)
+
+	destTree := ftree{is_dir: true, name: dest}
+	build_ftree(&destTree, dest, fs2)
+
+
+	compare_ftree(&srcTree, &destTree)
+	
+	walkFTree(&destTree)
+}
+
+func build_ftree(dirNode *ftree, pwd string, dirEntries []os.DirEntry) {
+	for i := range len(dirEntries) {
+		currFile := dirEntries[i]
+		fNode := ftree{is_dir: currFile.IsDir(), name: currFile.Name()}
+		dirNode.children = append(dirNode.children, &fNode)
+		if fNode.is_dir {
+			newDir := pwd + "/" + fNode.name
+			dirList, err := os.ReadDir(newDir)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			fmt.Println(subdir)
+			build_ftree(&fNode, newDir, dirList)
 		}
 	}
+}
 
-	fmt.Println("-----")
-	
-	for i := range len(fs2) {
-		fmt.Println(fs2[i])
-		if fs2[i].IsDir() {
-			subdir, err := os.ReadDir(dest + "/" + fs2[i].Name())
-			if err != nil {
-				fmt.Println(err)
-				continue
+func walkFTree(parent *ftree) {
+	fmt.Println(parent)
+	for i := range len(parent.children) {
+		walkFTree(parent.children[i])
+	}
+}
+
+func compare_ftree(src_tree *ftree, dest_tree *ftree) {
+	dest_idx := 0
+
+	if src_tree.checksum != dest_tree.checksum {
+		dest_tree.modified = UPDATED
+	}
+
+	for i := range src_tree.children {
+
+	loop:
+		for {
+			src_name := src_tree.children[i].name
+
+			dest_name := ""
+			if dest_idx >= len(dest_tree.children) {
+				dest_name = dest_tree.children[dest_idx].name
 			}
-			fmt.Println(subdir)
+
+			switch strings.Compare(src_name, dest_name) {
+			case 1:
+				new_file := src_tree.children[i]
+				fmt.Println(src_name, "created")
+				new_file.modified = CREATED
+				tempSlice := append(dest_tree.children[:dest_idx], new_file)
+				dest_tree.children = append(tempSlice, dest_tree.children[dest_idx:]...)
+				break loop
+			case -1:
+				fmt.Println(dest_name, "deleted")
+				dest_tree.children[i].modified = DELETED
+				dest_idx++
+			case 0:
+				fmt.Println(src_name, "matched")
+				break loop
+			}
 		}
+
+		fmt.Println("a;lkdfj")
+		dest_idx++
 	}
 }
