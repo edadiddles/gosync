@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	CREATED int = iota
+	NO_OP int = iota
+	CREATED
 	UPDATED
 	DELETED
 )
@@ -96,30 +97,33 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree) {
 		for {
 			src_name := src_tree.children[i].name
 
-			dest_name := ""
-			if dest_idx >= len(dest_tree.children) {
+			dest_name := "~~~~~"
+			if dest_idx < len(dest_tree.children) {
 				dest_name = dest_tree.children[dest_idx].name
 			}
 
+			fmt.Println(src_name, "<------>", dest_name)
 			switch strings.Compare(src_name, dest_name) {
-			case 1:
-				new_file := src_tree.children[i]
-				fmt.Println(src_name, "created")
-				new_file.modified = CREATED
-				tempSlice := append(dest_tree.children[:dest_idx], new_file)
-				dest_tree.children = append(tempSlice, dest_tree.children[dest_idx:]...)
-				break loop
 			case -1:
-				fmt.Println(dest_name, "deleted")
-				dest_tree.children[i].modified = DELETED
+				new_file := src_tree.children[i]
+				new_file.modified = CREATED
+				tempSlice := append(dest_tree.children[:dest_idx-1], new_file)
+				dest_tree.children = append(tempSlice, dest_tree.children[dest_idx-1:]...)
+				break loop
+			case 1:
+				if dest_idx >= len(dest_tree.children) {
+					fmt.Println("breaking early")
+					break loop
+				}
+
+				dest_tree.children[dest_idx].modified = DELETED
 				dest_idx++
 			case 0:
-				fmt.Println(src_name, "matched")
+				compare_ftree(src_tree.children[i], dest_tree.children[dest_idx])
 				break loop
 			}
 		}
 
-		fmt.Println("a;lkdfj")
 		dest_idx++
 	}
 }
