@@ -107,9 +107,12 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree) {
 			case -1:
 				new_file := src_tree.children[i]
 				new_file.modified = CREATED
-				tempSlice := append(dest_tree.children[:dest_idx-1], new_file)
-				dest_tree.children = append(tempSlice, dest_tree.children[dest_idx-1:]...)
-				break loop
+				tempSlice := append(dest_tree.children[:dest_idx], new_file)
+				if dest_idx+1 >= len(dest_tree.children) {
+					dest_tree.children = tempSlice
+				} else {
+					dest_tree.children = append(tempSlice, dest_tree.children[dest_idx+1:]...)
+				}
 			case 1:
 				if dest_idx >= len(dest_tree.children) {
 					fmt.Println("breaking early")
