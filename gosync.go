@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -18,7 +20,7 @@ const (
 type ftree struct {
 	is_dir   bool
 	name     string
-	checksum string
+	checksum []byte
 	modified int
 	children []*ftree
 }
@@ -63,7 +65,12 @@ func main() {
 func build_ftree(dirNode *ftree, pwd string, dirEntries []os.DirEntry) {
 	for i := range len(dirEntries) {
 		currFile := dirEntries[i]
-		fNode := ftree{is_dir: currFile.IsDir(), name: currFile.Name()}
+		checksum := []byte{}
+		if !currFile.IsDir() {
+			file_path := filepath.Join(pwd, currFile.Name())
+			checksum, _ = generate_checksum(file_path)
+		}
+		fNode := ftree{is_dir: currFile.IsDir(), name: currFile.Name(), checksum: checksum}
 		dirNode.children = append(dirNode.children, &fNode)
 		if fNode.is_dir {
 			newDir := pwd + "/" + fNode.name
@@ -87,7 +94,7 @@ func walkFTree(parent *ftree) {
 func compare_ftree(src_tree *ftree, dest_tree *ftree) {
 	dest_idx := 0
 
-	if src_tree.checksum != dest_tree.checksum {
+	if !src_tree.is_dir && !slices.Equal(src_tree.checksum, dest_tree.checksum) {
 		dest_tree.modified = UPDATED
 	}
 
@@ -135,6 +142,7 @@ func generate_checksum(filepath string) ([]byte, error) {
 	file, err := os.Open(filepath)
 	if err != nil {
 		fmt.Println("Error opening file:", filepath)
+		_ = file.Close()
 		return []byte{}, err
 	}
 	defer file.Close()
@@ -148,5 +156,4 @@ func generate_checksum(filepath string) ([]byte, error) {
 	}
 
 	return h.Sum(nil), nil
-
 }
