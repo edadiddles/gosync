@@ -1,9 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
-	//"crypto/sha256"
 	"strings"
 )
 
@@ -54,9 +55,8 @@ func main() {
 	destTree := ftree{is_dir: true, name: dest}
 	build_ftree(&destTree, dest, fs2)
 
-
 	compare_ftree(&srcTree, &destTree)
-	
+
 	walkFTree(&destTree)
 }
 
@@ -129,4 +129,24 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree) {
 
 		dest_idx++
 	}
+}
+
+func generate_checksum(filepath string) ([]byte, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		fmt.Println("Error opening file:", filepath)
+		return []byte{}, err
+	}
+	defer file.Close()
+
+	h := sha256.New()
+
+	_, err = io.Copy(h, file)
+	if err != nil {
+		fmt.Println("Error on io copy")
+		return []byte{}, err
+	}
+
+	return h.Sum(nil), nil
+
 }
