@@ -18,11 +18,12 @@ const (
 )
 
 type ftree struct {
-	is_dir   bool
-	name     string
-	checksum []byte
-	modified int
-	children []*ftree
+	is_dir    bool
+	full_path string
+	name      string
+	checksum  []byte
+	modified  int
+	children  []*ftree
 }
 
 func main() {
@@ -57,20 +58,24 @@ func main() {
 	destTree := ftree{is_dir: true, name: dest}
 	build_ftree(&destTree, dest, fs2)
 
-	compare_ftree(&srcTree, &destTree)
+	compare_ftree(&srcTree, &destTree, "")
 
-	walkFTree(&destTree)
+	if prog == "list" {
+		list(&destTree)
+	} else {
+		fmt.Println(prog, "unknown")
+	}
 }
 
 func build_ftree(dirNode *ftree, pwd string, dirEntries []os.DirEntry) {
 	for i := range len(dirEntries) {
 		currFile := dirEntries[i]
 		checksum := []byte{}
+		file_path := filepath.Join(pwd, currFile.Name())
 		if !currFile.IsDir() {
-			file_path := filepath.Join(pwd, currFile.Name())
 			checksum, _ = generate_checksum(file_path)
 		}
-		fNode := ftree{is_dir: currFile.IsDir(), name: currFile.Name(), checksum: checksum}
+		fNode := ftree{is_dir: currFile.IsDir(), name: currFile.Name(), full_path: file_path, checksum: checksum, modified: NO_OP}
 		dirNode.children = append(dirNode.children, &fNode)
 		if fNode.is_dir {
 			newDir := pwd + "/" + fNode.name
@@ -84,18 +89,15 @@ func build_ftree(dirNode *ftree, pwd string, dirEntries []os.DirEntry) {
 	}
 }
 
-func walkFTree(parent *ftree) {
-	fmt.Println(parent)
-	for i := range len(parent.children) {
-		walkFTree(parent.children[i])
-	}
-}
-
-func compare_ftree(src_tree *ftree, dest_tree *ftree) {
+func compare_ftree(src_tree *ftree, dest_tree *ftree, dest string) {
 	dest_idx := 0
 
 	if !src_tree.is_dir && !slices.Equal(src_tree.checksum, dest_tree.checksum) {
 		dest_tree.modified = UPDATED
+	}
+
+	if dest_tree.is_dir {
+		dest = filepath.Join(dest, dest_tree.name)
 	}
 
 	for i := range src_tree.children {
@@ -109,11 +111,12 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree) {
 				dest_name = dest_tree.children[dest_idx].name
 			}
 
-			fmt.Println(src_name, "<------>", dest_name)
 			switch strings.Compare(src_name, dest_name) {
 			case -1:
+				//TODO need to handle directory creation to recursively include all children
 				new_file := src_tree.children[i]
 				new_file.modified = CREATED
+				new_file.full_path = filepath.Join(dest, new_file.name)
 				tempSlice := append(dest_tree.children[:dest_idx], new_file)
 				if dest_idx+1 >= len(dest_tree.children) {
 					dest_tree.children = tempSlice
@@ -129,7 +132,7 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree) {
 				dest_tree.children[dest_idx].modified = DELETED
 				dest_idx++
 			case 0:
-				compare_ftree(src_tree.children[i], dest_tree.children[dest_idx])
+				compare_ftree(src_tree.children[i], dest_tree.children[dest_idx], dest)
 				break loop
 			}
 		}
@@ -157,3 +160,31 @@ func generate_checksum(filepath string) ([]byte, error) {
 
 	return h.Sum(nil), nil
 }
+
+func list(parent *ftree) {
+	if parent.modified != NO_OP {
+		modified := "Unknown"
+		switch parent.modified {
+		case CREATED:
+			modified = "Created"
+		case UPDATED:
+			modified = "Updated"
+		case DELETED:
+			modified = "Deleted"
+		}
+
+		fmt.Printf("%s\t%s\n", parent.full_path, modified)
+	}
+	for i := range len(parent.children) {
+		list(parent.children[i])
+	}
+}
+
+// for debugging
+func walkFTree(parent *ftree) {
+	fmt.Println(parent)
+	for i := range len(parent.children) {
+		walkFTree(parent.children[i])
+	}
+}
+
