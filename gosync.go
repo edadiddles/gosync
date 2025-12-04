@@ -58,6 +58,11 @@ func main() {
 	destTree := ftree{is_dir: true, name: dest}
 	build_ftree(&destTree, dest, fs2)
 
+	walkFTree(&srcTree)
+	fmt.Println("------------")
+	walkFTree(&destTree)
+	fmt.Println("------------")
+
 	compare_ftree(&srcTree, &destTree, "")
 
 	if prog == "list" {
@@ -111,12 +116,20 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree, dest string) {
 				dest_name = dest_tree.children[dest_idx].name
 			}
 
+			fmt.Println(src_name, "---", dest_name)
 			switch strings.Compare(src_name, dest_name) {
 			case -1:
-				//TODO need to handle directory creation to recursively include all children
 				new_file := src_tree.children[i]
 				new_file.modified = CREATED
 				new_file.full_path = filepath.Join(dest, new_file.name)
+				if new_file.is_dir {
+					// TODO need to apply this recursively for any file that is a directory.
+					for j := range new_file.children {
+						child_name := new_file.children[j].name
+						new_file.children[j].modified = CREATED
+						new_file.children[j].full_path = filepath.Join(new_file.full_path, child_name)
+					}
+				}
 				tempSlice := append(dest_tree.children[:dest_idx], new_file)
 				if dest_idx+1 >= len(dest_tree.children) {
 					dest_tree.children = tempSlice
@@ -124,6 +137,7 @@ func compare_ftree(src_tree *ftree, dest_tree *ftree, dest string) {
 					dest_tree.children = append(tempSlice, dest_tree.children[dest_idx+1:]...)
 				}
 			case 1:
+				fmt.Println("deleting", dest_tree.children[dest_idx].name)
 				if dest_idx >= len(dest_tree.children) {
 					fmt.Println("breaking early")
 					break loop
@@ -182,7 +196,7 @@ func list(parent *ftree) {
 
 // for debugging
 func walkFTree(parent *ftree) {
-	fmt.Println(parent)
+	fmt.Println(parent.name)
 	for i := range len(parent.children) {
 		walkFTree(parent.children[i])
 	}
